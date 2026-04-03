@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>상앤상 기술 스택 & 코드 구조 가이드</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Pretendard', -apple-system, sans-serif;
+    background: #0a0a0a;
+    color: #e0e0e0;
+    overflow-x: hidden;
+  }
+
+  /* ── Navigation ── */
+  .nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(10,10,10,0.95); backdrop-filter: blur(12px);
+    border-bottom: 1px solid #222;
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 24px; overflow-x: auto;
+  }
+  .nav-btn {
+    padding: 8px 16px; border-radius: 4px; border: 1px solid #333;
+    background: transparent; color: #999; cursor: pointer;
+    font-size: 13px; white-space: nowrap; transition: all 0.2s;
+  }
+  .nav-btn:hover { border-color: #FF4500; color: #FF4500; }
+  .nav-btn.active { background: #FF4500; color: #fff; border-color: #FF4500; }
+
+  /* ── Main Layout ── */
+  .container { max-width: 1400px; margin: 0 auto; padding: 80px 24px 60px; }
+
+  h1 {
+    font-size: 32px; font-weight: 700; color: #fff;
+    margin-bottom: 8px;
+  }
+  h1 span { color: #FF4500; }
+  .subtitle { color: #777; font-size: 14px; margin-bottom: 40px; }
+
+  /* ── Section ── */
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* ── Network Diagram (SVG Canvas) ── */
+  .diagram-container {
+    position: relative; width: 100%;
+    background: #111; border: 1px solid #222; border-radius: 4px;
+    overflow: hidden; min-height: 700px;
+  }
+  .diagram-svg { width: 100%; height: 700px; }
+
+  /* ── Node styles ── */
+  .node { cursor: pointer; transition: transform 0.2s; }
+  .node:hover { filter: brightness(1.2); }
+  .node-rect { rx: 4; ry: 4; stroke-width: 2; }
+  .node-text { font-family: 'Pretendard', sans-serif; fill: #fff; font-weight: 600; font-size: 13px; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  .node-sub { font-family: 'Pretendard', sans-serif; fill: rgba(255,255,255,0.6); font-size: 10px; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  .edge { stroke-width: 2; fill: none; opacity: 0.5; }
+  .edge-label { font-family: 'Pretendard', sans-serif; fill: #666; font-size: 10px; text-anchor: middle; }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px;
+    padding: 16px; background: #111; border: 1px solid #222; border-radius: 4px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #999; }
+  .legend-color { width: 16px; height: 16px; border-radius: 2px; }
+
+  /* ── Tooltip ── */
+  .tooltip {
+    position: fixed; z-index: 200; padding: 16px 20px;
+    background: #1a1a1a; border: 1px solid #333; border-radius: 4px;
+    max-width: 360px; font-size: 13px; line-height: 1.6;
+    pointer-events: none; opacity: 0; transition: opacity 0.15s;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .tooltip.show { opacity: 1; }
+  .tooltip h3 { color: #FF4500; font-size: 15px; margin-bottom: 8px; }
+  .tooltip p { color: #bbb; }
+  .tooltip code { background: #222; padding: 2px 6px; border-radius: 2px; color: #FF4500; font-size: 12px; }
+
+  /* ── Code Map Section ── */
+  .code-map { display: flex; flex-direction: column; gap: 24px; }
+
+  .code-group {
+    background: #111; border: 1px solid #222; border-radius: 4px;
+    overflow: hidden;
+  }
+  .code-group-header {
+    padding: 16px 20px; cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid #222; transition: background 0.2s;
+  }
+  .code-group-header:hover { background: #1a1a1a; }
+  .code-group-title {
+    font-size: 16px; font-weight: 600; color: #fff;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .code-group-title .icon { font-size: 20px; }
+  .code-group-badge {
+    padding: 4px 10px; border-radius: 2px; font-size: 11px;
+    font-weight: 500; border: 1px solid;
+  }
+  .badge-core { color: #FF4500; border-color: #FF4500; background: rgba(255,69,0,0.1); }
+  .badge-service { color: #4FC3F7; border-color: #4FC3F7; background: rgba(79,195,247,0.1); }
+  .badge-screen { color: #81C784; border-color: #81C784; background: rgba(129,199,132,0.1); }
+  .badge-infra { color: #FFB74D; border-color: #FFB74D; background: rgba(255,183,77,0.1); }
+
+  .chevron { color: #555; transition: transform 0.3s; font-size: 18px; }
+  .code-group.open .chevron { transform: rotate(180deg); }
+
+  .code-group-body { display: none; padding: 0; }
+  .code-group.open .code-group-body { display: block; }
+
+  .code-item {
+    padding: 14px 20px; border-bottom: 1px solid #1a1a1a;
+    display: grid; grid-template-columns: 260px 1fr; gap: 16px;
+    align-items: start;
+  }
+  .code-item:last-child { border-bottom: none; }
+  .code-item:hover { background: rgba(255,69,0,0.03); }
+
+  .code-file {
+    font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px;
+    color: #FF4500; word-break: break-all;
+  }
+  .code-desc { font-size: 13px; color: #bbb; line-height: 1.6; }
+  .code-desc strong { color: #fff; font-weight: 600; }
+  .code-output {
+    margin-top: 6px; padding: 8px 12px;
+    background: #0a0a0a; border-left: 3px solid #333;
+    font-size: 12px; color: #888; border-radius: 0 4px 4px 0;
+  }
+  .code-output span { color: #4FC3F7; }
+
+  /* ── Flow Diagram Section ── */
+  .flow-container {
+    background: #111; border: 1px solid #222; border-radius: 4px;
+    padding: 24px; margin-bottom: 24px;
+  }
+  .flow-title { font-size: 18px; font-weight: 600; color: #fff; margin-bottom: 20px; }
+  .flow-row {
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap; margin-bottom: 12px;
+  }
+  .flow-box {
+    padding: 10px 16px; border-radius: 4px; font-size: 12px;
+    font-weight: 500; white-space: nowrap; position: relative;
+  }
+  .flow-arrow { color: #555; font-size: 18px; }
+  .fb-user { background: #1a3a1a; color: #81C784; border: 1px solid #2e5a2e; }
+  .fb-screen { background: #1a2a3a; color: #4FC3F7; border: 1px solid #2a4a6a; }
+  .fb-service { background: #3a2a1a; color: #FFB74D; border: 1px solid #5a3a1a; }
+  .fb-firebase { background: #3a1a1a; color: #FF4500; border: 1px solid #5a2a2a; }
+  .fb-result { background: #2a1a3a; color: #CE93D8; border: 1px solid #4a2a5a; }
+
+  .flow-label {
+    width: 100%; font-size: 11px; color: #555;
+    margin: 8px 0 4px; padding-left: 4px;
+    border-left: 3px solid #333;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .code-item { grid-template-columns: 1fr; }
+    h1 { font-size: 24px; }
+    .diagram-svg { height: 500px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="tooltip" id="tooltip"></div>
+
+<nav class="nav">
+  <button class="nav-btn active" onclick="showSection('diagram')">기술 스택 다이어그램</button>
+  <button class="nav-btn" onclick="showSection('codemap')">코드 → 기능 매핑</button>
+  <button class="nav-btn" onclick="showSection('flow')">데이터 흐름도</button>
+</nav>
+
+<div class="container">
+  <h1><span>SANG&SANG</span> Tech Architecture</h1>
+  <p class="subtitle">상앤상 기술 스택 네트워크 다이어그램 & 코드 구조 가이드 — 각 노드를 클릭하면 상세 설명이 나타납니다</p>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- SECTION 1: Network Diagram              -->
+  <!-- ════════════════════════════════════════ -->
+  <div id="diagram" class="section active">
+    <div class="diagram-container">
+      <svg class="diagram-svg" viewBox="0 0 1200 700">
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#444"/>
+          </marker>
+        </defs>
+
+        <!-- ── Edges (drawn first, behind nodes) ── -->
+        <!-- Flutter App → Firebase Auth -->
+        <path class="edge" d="M 300,120 Q 400,80 500,120" stroke="#81C784" marker-end="url(#arrow)"/>
+        <text class="edge-label" x="400" y="90">인증 요청</text>
+
+        <!-- Flutter App → Data Connect -->
+        <path class="edge" d="M 300,160 L 500,240" stroke="#4FC3F7" marker-end="url(#arrow)"/>
+        <text class="edge-label" x="380" y="210">GraphQL 쿼리/뮤테이션</text>
+
+        <!-- Flutter App → Firebase Storage -->
+        <path class="edge" d="M 300,170 Q 350,300 500,360" stroke="#FFB74D" marker-end="url(#arrow)"/>
+        <text class="edge-label" x="370" y="310">이미지 업로드</text>
+
+        <!-- Flutter App → AI Service -->
+        <path class="edge" d="M 150,180 L 150,320" stroke="#CE93D8" marker-end="url(#arrow)"/>
+        <text class="edge-label" x="130" y="250">렌더링 요청</text>
+
+        <!-- Data Connect → PostgreSQL -->
+        <path class="edge" d="M 700,240 L 900,240" stroke="#4FC3F7" marker-end="url(#arrow)"/>
+        <text class="edge-label" x="800" y="228">SQL 변환</text>
+
+        <!-- Firebase Auth → Firestore -->
+        <path class="edge" d="M 600,155 L 600,320" stroke="#81C784" marker-end="url(#arrow)"/>
+        <text class="edge-label" x="632" y="240">유저 세션</text>
+
+        <!-- Cloud Functions → Firestore -->
+        <path class="edge" d="M 850,380 L 700,360" stroke="#FF4500" marker-end="url(#arrow)"/>
+        <text class="edge-label" x="790" y="358">읽기/쓰기</text>
+
+        <!-- Cloud Functions → FCM -->
+        <path class="edge" d="M 950,410 L 1050,480" stroke="#FF4500" marker-end="url(#arrow)"/>
+        <text class="edge-label" x="1020" y="440">푸시 발송</text>
+
+        <!-- Flutter App → Firestore -->
+        <path class="edge" d="M 300,175 Q 400,340 500,355" stroke="#FFB74D" marker-end="url(#arrow)"/>
+
+        <!-- AI Service → Gemini -->
+        <path class="edge" d="M 150,420 L 150,510" stroke="#CE93D8" marker-end="url(#arrow)"/>
+        <text class="edge-label" x="120" y="468">Primary</text>
+
+        <!-- AI Service → GPT -->
+        <path class="edge" d="M 200,420 L 350,510" stroke="#CE93D8" marker-end="url(#arrow)"/>
+        <text class="edge-label" x="300" y="468">Safety Net</text>
+
+        <!-- Flutter App → Toss -->
+        <path class="edge" d="M 200,180 Q 100,450 150,590" stroke="#81C784" marker-end="url(#arrow)"/>
+        <text class="edge-label" x="95" y="400">결제 요청</text>
+
+        <!-- Cloud Functions → Solapi -->
+        <path class="edge" d="M 950,380 L 1050,320" stroke="#FF4500" marker-end="url(#arrow)"/>
+        <text class="edge-label" x="1020" y="340">SMS/알림톡</text>
+
+        <!-- Flutter → Cloud Functions -->
+        <path class="edge" d="M 300,160 Q 600,450 850,400" stroke="#FF4500" marker-end="url(#arrow)"/>
+        <text class="edge-label" x="580" y="380">Functions 호출</text>
+
+        <!-- ── LAYER: Flutter App (Center-Left) ── -->
+        <g class="node" data-info="flutter">
+          <rect class="node-rect" x="60" y="100" width="240" height="80" fill="#1a3a1a" stroke="#81C784"/>
+          <text class="node-text" x="180" y="132">Flutter (Dart)</text>
+          <text class="node-sub" x="180" y="155">프론트엔드 · 크로스 플랫폼 앱</text>
+        </g>
+
+        <!-- ── LAYER: Firebase Auth ── -->
+        <g class="node" data-info="auth">
+          <rect class="node-rect" x="500" y="95" width="200" height="60" fill="#2a1a1a" stroke="#FF4500"/>
+          <text class="node-text" x="600" y="120">Firebase Auth</text>
+          <text class="node-sub" x="600" y="138">Google · Kakao · Apple</text>
+        </g>
+
+        <!-- ── LAYER: Data Connect ── -->
+        <g class="node" data-info="dataconnect">
+          <rect class="node-rect" x="500" y="210" width="200" height="60" fill="#1a2a3a" stroke="#4FC3F7"/>
+          <text class="node-text" x="600" y="235">Data Connect</text>
+          <text class="node-sub" x="600" y="253">GraphQL 백엔드</text>
+        </g>
+
+        <!-- ── LAYER: PostgreSQL ── -->
+        <g class="node" data-info="postgres">
+          <rect class="node-rect" x="880" y="210" width="200" height="60" fill="#1a2a3a" stroke="#4FC3F7"/>
+          <text class="node-text" x="980" y="235">PostgreSQL</text>
+          <text class="node-sub" x="980" y="253">메인 데이터베이스</text>
+        </g>
+
+        <!-- ── LAYER: Firestore ── -->
+        <g class="node" data-info="firestore">
+          <rect class="node-rect" x="500" y="330" width="200" height="60" fill="#3a2a1a" stroke="#FFB74D"/>
+          <text class="node-text" x="600" y="355">Firestore</text>
+          <text class="node-sub" x="600" y="373">채팅 · 알림 · 설정</text>
+        </g>
+
+        <!-- ── LAYER: Firebase Storage ── -->
+        <g class="node" data-info="storage">
+          <rect class="node-rect" x="500" y="440" width="200" height="60" fill="#3a2a1a" stroke="#FFB74D"/>
+          <text class="node-text" x="600" y="465">Firebase Storage</text>
+          <text class="node-sub" x="600" y="483">이미지 · 파일 저장</text>
+        </g>
+
+        <!-- ── LAYER: Cloud Functions ── -->
+        <g class="node" data-info="functions">
+          <rect class="node-rect" x="830" y="370" width="220" height="60" fill="#2a1a1a" stroke="#FF4500"/>
+          <text class="node-text" x="940" y="395">Cloud Functions</text>
+          <text class="node-sub" x="940" y="413">서버리스 백엔드 로직</text>
+        </g>
+
+        <!-- ── LAYER: AI Service ── -->
+        <g class="node" data-info="ai">
+          <rect class="node-rect" x="60" y="320" width="240" height="100" fill="#2a1a3a" stroke="#CE93D8"/>
+          <text class="node-text" x="180" y="352">AI 렌더링 엔진</text>
+          <text class="node-sub" x="180" y="372">ai_service.dart v7.5</text>
+          <text class="node-sub" x="180" y="392">3-Tier 폴백 시스템</text>
+        </g>
+
+        <!-- ── LAYER: Gemini ── -->
+        <g class="node" data-info="gemini">
+          <rect class="node-rect" x="60" y="510" width="170" height="55" fill="#2a1a3a" stroke="#CE93D8"/>
+          <text class="node-text" x="145" y="532">Gemini 3.1 Flash</text>
+          <text class="node-sub" x="145" y="550">Primary 렌더링</text>
+        </g>
+
+        <!-- ── LAYER: GPT ── -->
+        <g class="node" data-info="gpt">
+          <rect class="node-rect" x="270" y="510" width="170" height="55" fill="#2a1a3a" stroke="#CE93D8"/>
+          <text class="node-text" x="355" y="532">GPT Image 1.5</text>
+          <text class="node-sub" x="355" y="550">Safety Net 폴백</text>
+        </g>
+
+        <!-- ── LAYER: FCM ── -->
+        <g class="node" data-info="fcm">
+          <rect class="node-rect" x="1000" y="470" width="160" height="55" fill="#2a1a1a" stroke="#FF4500"/>
+          <text class="node-text" x="1080" y="492">FCM</text>
+          <text class="node-sub" x="1080" y="510">푸시 알림</text>
+        </g>
+
+        <!-- ── LAYER: Toss ── -->
+        <g class="node" data-info="toss">
+          <rect class="node-rect" x="60" y="585" width="200" height="55" fill="#1a3a1a" stroke="#81C784"/>
+          <text class="node-text" x="160" y="607">토스페이먼츠</text>
+          <text class="node-sub" x="160" y="625">에스크로 · PG 결제</text>
+        </g>
+
+        <!-- ── LAYER: Solapi ── -->
+        <g class="node" data-info="solapi">
+          <rect class="node-rect" x="1000" y="290" width="160" height="55" fill="#3a2a1a" stroke="#FFB74D"/>
+          <text class="node-text" x="1080" y="312">Solapi</text>
+          <text class="node-sub" x="1080" y="330">카카오 알림톡</text>
+        </g>
+
+        <!-- ── LAYER: Gemini Pro Fallback ── -->
+        <g class="node" data-info="geminipro">
+          <rect class="node-rect" x="60" y="580" width="0" height="0" fill="transparent" stroke="transparent"/>
+        </g>
+
+        <!-- ── Schema Layer ── -->
+        <g class="node" data-info="schema">
+          <rect class="node-rect" x="880" y="120" width="200" height="60" fill="#1a2a3a" stroke="#4FC3F7"/>
+          <text class="node-text" x="980" y="145">schema.gql v6.3</text>
+          <text class="node-sub" x="980" y="163">GraphQL 스키마 정의</text>
+        </g>
+        <path class="edge" d="M 980,180 L 980,210" stroke="#4FC3F7" marker-end="url(#arrow)"/>
+
+        <!-- ── Kakao ── -->
+        <g class="node" data-info="kakao">
+          <rect class="node-rect" x="830" y="470" width="150" height="55" fill="#3a2a1a" stroke="#FFB74D"/>
+          <text class="node-text" x="905" y="492">Kakao API</text>
+          <text class="node-sub" x="905" y="510">로그인 · 주소검색</text>
+        </g>
+
+        <!-- Gemini 3 Pro Fallback label -->
+        <g class="node" data-info="geminipro_fb">
+          <rect class="node-rect" x="60" y="440" width="240" height="0" fill="transparent" stroke="transparent"/>
+        </g>
+        <text class="node-sub" x="180" y="437" style="fill:#CE93D8; font-size:9px;">Flash → Pro Fallback → GPT Safety Net</text>
+
+      </svg>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-color" style="background:#81C784;"></div> 프론트엔드 / 결제</div>
+      <div class="legend-item"><div class="legend-color" style="background:#4FC3F7;"></div> 데이터 레이어</div>
+      <div class="legend-item"><div class="legend-color" style="background:#FFB74D;"></div> 스토리지 / 외부 API</div>
+      <div class="legend-item"><div class="legend-color" style="background:#FF4500;"></div> Firebase 서비스</div>
+      <div class="legend-item"><div class="legend-color" style="background:#CE93D8;"></div> AI 엔진</div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- SECTION 2: Code → Feature Map           -->
+  <!-- ════════════════════════════════════════ -->
+  <div id="codemap" class="section">
+
+    <!-- GROUP: 진입점 -->
+    <div class="code-map">
+      <div class="code-group open">
+        <div class="code-group-header" onclick="toggleGroup(this)">
+          <div class="code-group-title">
+            <span class="icon">🚀</span> 앱 진입점 & 초기화
+            <span class="code-group-badge badge-core">Core</span>
+          </div>
+          <span class="chevron">▼</span>
+        </div>
+        <div class="code-group-body">
+          <div class="code-item">
+            <div class="code-file">lib/main.dart</div>
+            <div class="code-desc">
+              <strong>앱의 시작점.</strong> Firebase 초기화, 테마 설정, 라우팅 연결을 담당합니다.
+              <code>kUseDataConnectEmulator</code> 플래그로 에뮬레이터/프로덕션 전환.
+              <div class="code-output">→ 만들어내는 것: <span>앱 부팅 → Firebase 연결 → 첫 화면 표시</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">lib/routes/</div>
+            <div class="code-desc">
+              <strong>화면 간 네비게이션 규칙.</strong> Named route 방식으로 <code>/main</code>, <code>/login</code>, <code>/post-detail</code> 등의 경로를 정의합니다.
+              <div class="code-output">→ 만들어내는 것: <span>사용자가 버튼 누르면 해당 화면으로 이동하는 흐름</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GROUP: 인증 -->
+      <div class="code-group">
+        <div class="code-group-header" onclick="toggleGroup(this)">
+          <div class="code-group-title">
+            <span class="icon">🔐</span> 인증 & 회원가입
+            <span class="code-group-badge badge-service">Service</span>
+          </div>
+          <span class="chevron">▼</span>
+        </div>
+        <div class="code-group-body">
+          <div class="code-item">
+            <div class="code-file">lib/services/auth_service.dart</div>
+            <div class="code-desc">
+              <strong>로그인/로그아웃/회원탈퇴 핵심 로직.</strong> Google, Apple, Kakao 3가지 소셜 로그인을 처리합니다. Kakao는 Firebase Custom Token 방식으로 연동 (Cloud Functions 경유).
+              <div class="code-output">→ 만들어내는 것: <span>소셜 로그인 버튼 클릭 → Firebase 인증 → 앱 진입</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">lib/screens/sign_up_screen.dart</div>
+            <div class="code-desc">
+              <strong>회원가입 멀티스텝 UI.</strong> PageView 기반 5스텝(디자이너), 5스텝(셀러), 3스텝(일반). 약관 동의, Pro/Indie 선택, 사업자 번호 검증(국세청 API), 프로필 입력까지.
+              <div class="code-output">→ 만들어내는 것: <span>단계별 가입 화면 + 유저 타입별 분기 + DB 저장</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">lib/screens/login_screen.dart</div>
+            <div class="code-desc">
+              <strong>로그인 화면.</strong> 이메일/비밀번호 + 소셜 로그인 버튼 + "기억하기" (flutter_secure_storage AES-256 암호화).
+              <div class="code-output">→ 만들어내는 것: <span>로그인 UI + 자동 로그인 + 비밀번호 복호화</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GROUP: 메인 화면 -->
+      <div class="code-group">
+        <div class="code-group-header" onclick="toggleGroup(this)">
+          <div class="code-group-title">
+            <span class="icon">🏠</span> 메인 화면 & 홈 피드
+            <span class="code-group-badge badge-screen">Screen</span>
+          </div>
+          <span class="chevron">▼</span>
+        </div>
+        <div class="code-group-body">
+          <div class="code-item">
+            <div class="code-file">lib/screens/main/home_tab_reveal.dart</div>
+            <div class="code-desc">
+              <strong>홈 피드 (핵심 화면).</strong> GridView로 디자이너 Piece들을 3:4 비율 카드로 표시. S'thinker(관심) 버튼, AI 렌더링 뱃지, MOQ 뱃지, PRO 뱃지 포함. 알림 벨 아이콘 + 안읽음 뱃지.
+              <div class="code-output">→ 만들어내는 것: <span>인스타/Pinterest 스타일 디자인 피드 + 실시간 알림 뱃지</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">lib/screens/main/main_screen.dart</div>
+            <div class="code-desc">
+              <strong>하단 탭 네비게이션.</strong> 홈/검색/업로드/마이페이지 4개 탭 + 협업 요청 뱃지.
+              <div class="code-output">→ 만들어내는 것: <span>앱 하단 탭바 + 탭별 화면 전환</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">lib/screens/post_detail_screen.dart</div>
+            <div class="code-desc">
+              <strong>Piece 상세 화면.</strong> 스케치/렌더링 탭, 디자이너 프로필, 가격/MOQ (유저 타입별 접근 제어), 채팅/협업 요청 버튼, 신고/차단 메뉴.
+              <div class="code-output">→ 만들어내는 것: <span>디자인 이미지 뷰어 + 상세 정보 + 협업 진입점</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GROUP: 데이터 레이어 -->
+      <div class="code-group">
+        <div class="code-group-header" onclick="toggleGroup(this)">
+          <div class="code-group-title">
+            <span class="icon">💾</span> 데이터 레이어 (DB 통신)
+            <span class="code-group-badge badge-service">Service</span>
+          </div>
+          <span class="chevron">▼</span>
+        </div>
+        <div class="code-group-body">
+          <div class="code-item">
+            <div class="code-file">lib/services/dataconnect_service.dart</div>
+            <div class="code-desc">
+              <strong>가장 큰 서비스 파일. 모든 DB 읽기/쓰기의 허브.</strong> Firebase Data Connect SDK를 통해 GraphQL 쿼리/뮤테이션을 실행합니다. 게시물 CRUD, 협업 생성/상태 변경, 견적서, 정산 등 모든 데이터 조작이 여기를 거칩니다.
+              <div class="code-output">→ 만들어내는 것: <span>"이 함수를 호출하면 → DB에 데이터가 저장/조회된다"의 중심</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">dataconnect/schema/schema.gql</div>
+            <div class="code-desc">
+              <strong>DB 테이블 설계도 (v6.3).</strong> User, Post, Cowork, Quotation, Payment, SampleProgress, Production, CSRequest, Settlement 등 모든 테이블의 컬럼과 관계를 정의합니다. 이 파일이 바뀌면 → SDK 재생성 필요.
+              <div class="code-output">→ 만들어내는 것: <span>PostgreSQL에 실제 테이블이 생성됨 (마이그레이션)</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">dataconnect/sangsang/queries.gql</div>
+            <div class="code-desc">
+              <strong>데이터 읽기 정의.</strong> GetPostById, ListPosts, GetCoworkDetail, GetMyPayments 등 "어떤 데이터를 어떻게 조회할지" 정의합니다.
+              <div class="code-output">→ 만들어내는 것: <span>"홈 피드에 보여줄 게시물 목록" 같은 쿼리 결과</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">dataconnect/sangsang/mutations.gql</div>
+            <div class="code-desc">
+              <strong>데이터 쓰기 정의.</strong> CreatePost, CreateCowork, UpdateCoworkStatus, CreateQuotation 등 "데이터를 생성/수정/삭제"하는 작업을 정의합니다.
+              <div class="code-output">→ 만들어내는 것: <span>"사용자가 디자인 올리기 누르면" → DB에 새 행 추가</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">lib/dataconnect_generated/</div>
+            <div class="code-desc">
+              <strong>자동 생성 코드 (절대 수정 금지!).</strong> <code>firebase dataconnect:sdk:generate</code> 명령어로 schema.gql + queries.gql + mutations.gql을 분석해서 Dart 타입 코드를 자동으로 만들어줍니다.
+              <div class="code-output">→ 만들어내는 것: <span>Dart에서 타입 안전하게 DB를 호출할 수 있는 함수들</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GROUP: 협업 플로우 -->
+      <div class="code-group">
+        <div class="code-group-header" onclick="toggleGroup(this)">
+          <div class="code-group-title">
+            <span class="icon">🤝</span> 협업 플로우 (Cowork v4.5)
+            <span class="code-group-badge badge-screen">Screen</span>
+          </div>
+          <span class="chevron">▼</span>
+        </div>
+        <div class="code-group-body">
+          <div class="code-item">
+            <div class="code-file">lib/screens/cowork_v2/request/</div>
+            <div class="code-desc">
+              <strong>셀러가 디자이너에게 협업 요청.</strong> 원하는 수량, 색상, 참고 이미지, 스타일 설명을 입력합니다. → Cowork 테이블에 status='REQUESTED'로 생성.
+              <div class="code-output">→ 만들어내는 것: <span>"협업 요청하기" 화면 + 요청 데이터 DB 저장</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">lib/screens/cowork_v2/quotation/</div>
+            <div class="code-desc">
+              <strong>디자이너가 견적서 작성.</strong> 품목명, 색상별 수량, 단가, 납기일 입력 → Quotation 테이블 생성 + Cowork status='QUOTED'. 셀러/디자이너 양쪽 수수료 미리보기 포함.
+              <div class="code-output">→ 만들어내는 것: <span>견적서 작성 폼 + 수수료 자동 계산 + PDF 생성</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">lib/screens/cowork_v2/payment/</div>
+            <div class="code-desc">
+              <strong>토스페이먼츠 에스크로 결제.</strong> 셀러가 견적 금액을 안전결제. <code>payment_screen.dart</code>에 토스 SDK 연동, 협업 약관 동의 체크, B2B 거래 고지 배너.
+              <div class="code-output">→ 만들어내는 것: <span>결제 화면 → 토스 결제창 → 결제 완료 → status='PAID'</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">lib/screens/cowork_v2/sample/</div>
+            <div class="code-desc">
+              <strong>샘플 제작 진행 추적.</strong> 디자이너가 6단계(패턴 발주 → 재단 → 봉제 → 마감 → 검수 → 완료) 순서대로 진행률을 업데이트. SampleProgress 테이블.
+              <div class="code-output">→ 만들어내는 것: <span>프로그레스 바 + 단계별 체크 UI + 완료 사진 업로드</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">lib/screens/cowork_v2/feedback/</div>
+            <div class="code-desc">
+              <strong>셀러 피드백.</strong> 샘플 수령 후 승인(→본생산) 또는 재샘플 요청(→새 견적). 최대 2회 재샘플 가능.
+              <div class="code-output">→ 만들어내는 것: <span>승인/재샘플 선택 UI + 재샘플 사유 입력</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">lib/screens/cowork_v2/production/</div>
+            <div class="code-desc">
+              <strong>본생산 플로우.</strong> 셀러가 생산 수량 제출 → 디자이너 본생산 견적 → 결제 → 제작 → 납품. ProductionOrder + Production 테이블.
+              <div class="code-output">→ 만들어내는 것: <span>본생산 수량 입력 → 견적 → 결제 → 진행 추적</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">lib/screens/cowork_v2/cs/</div>
+            <div class="code-desc">
+              <strong>CS (불량 처리) 플로우.</strong> 셀러가 불량 사진 업로드 → 디자이너 건별 판정(수선가능/불가) → 수선 → 반송. CSRequest + CSItem 테이블.
+              <div class="code-output">→ 만들어내는 것: <span>불량 신고 UI + 이미지 갤러리 + 수선 결과 입력</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">lib/screens/cowork_v2/complete/</div>
+            <div class="code-desc">
+              <strong>완료 & 리뷰.</strong> 디자이너↔셀러 상호 리뷰(별점 + 텍스트) + 정산 처리. Review + Settlement 테이블.
+              <div class="code-output">→ 만들어내는 것: <span>별점 리뷰 UI + 정산 보고서 PDF + 리오더 버튼</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GROUP: AI 렌더링 -->
+      <div class="code-group">
+        <div class="code-group-header" onclick="toggleGroup(this)">
+          <div class="code-group-title">
+            <span class="icon">🎨</span> AI 렌더링 엔진
+            <span class="code-group-badge badge-core">Core · 특허</span>
+          </div>
+          <span class="chevron">▼</span>
+        </div>
+        <div class="code-group-body">
+          <div class="code-item">
+            <div class="code-file">lib/services/ai_service.dart</div>
+            <div class="code-desc">
+              <strong>핵심 차별점! 스케치 + 원단 → 실사 이미지 생성 (v7.5).</strong><br><br>
+              <strong>3-Tier 폴백 시스템:</strong><br>
+              ① Gemini 3.1 Flash (Primary, $0.045/장) → ② Gemini 3 Pro (Fallback) → ③ GPT Image 1.5 (Safety Net)<br><br>
+              <strong>스마트 재시도:</strong> 429(할당량 초과) → 즉시 다음 모델 전환, 503(서버 에러) → 지수 백오프<br><br>
+              <strong>프롬프트 구조:</strong> 성별 + 복종 + 소분류 + 디자인 디테일 태그 + 원단 특성(투명도/질감) → 자연어 프롬프트 자동 조립
+              <div class="code-output">→ 만들어내는 것: <span>디자이너 스케치 + 원단 사진 = 실사 룩북 이미지 (특허 출원 기술)</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">lib/screens/upload/upload_screen.dart</div>
+            <div class="code-desc">
+              <strong>디자인 업로드 화면.</strong> 스케치(앞면/뒷면) + 원단 스와치(최대 3장) + 카테고리/소분류 + 디자인 디테일 태그(8개 메인, 80+ 서브) + MOQ/가격/사이즈 입력. 3:4 비율 강제 크롭.
+              <div class="code-output">→ 만들어내는 것: <span>"새 Piece 올리기" 전체 폼 + AI 렌더링 트리거</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GROUP: 결제/정산 -->
+      <div class="code-group">
+        <div class="code-group-header" onclick="toggleGroup(this)">
+          <div class="code-group-title">
+            <span class="icon">💳</span> 결제 & 정산
+            <span class="code-group-badge badge-service">Service</span>
+          </div>
+          <span class="chevron">▼</span>
+        </div>
+        <div class="code-group-body">
+          <div class="code-item">
+            <div class="code-file">lib/services/cowork_v2/settlement_service.dart</div>
+            <div class="code-desc">
+              <strong>정산 핵심 로직.</strong> FeeCalculator v2.0으로 Pro 10% / Indie 16% 수수료 자동 계산. 정산 요약(총 수령액, 진행 중, 대기 중, 수수료), 기간별 필터, PDF 생성.
+              <div class="code-output">→ 만들어내는 것: <span>디자이너 정산 대시보드 + 정산 보고서 PDF + 수수료 분리 표시</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">lib/models/fee_calculator.dart</div>
+            <div class="code-desc">
+              <strong>수수료 계산 엔진.</strong> Piece: 셀러 0% + Pro 디자이너 10% / Indie 16%. 커스텀오더: 셀러 4~5% + 디자이너 7%. VAT 10% 별도, PG 3.5% 상앤상 흡수.
+              <div class="code-output">→ 만들어내는 것: <span>견적서/결제/정산 화면의 수수료 자동 산출</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GROUP: 채팅/알림 -->
+      <div class="code-group">
+        <div class="code-group-header" onclick="toggleGroup(this)">
+          <div class="code-group-title">
+            <span class="icon">💬</span> 채팅 & 알림
+            <span class="code-group-badge badge-service">Service</span>
+          </div>
+          <span class="chevron">▼</span>
+        </div>
+        <div class="code-group-body">
+          <div class="code-item">
+            <div class="code-file">lib/services/chat_service.dart</div>
+            <div class="code-desc">
+              <strong>실시간 1:1 채팅.</strong> Firestore 기반 (chatRooms + messages 컬렉션). 텍스트 + 이미지 메시지, 읽음 처리, 신고/차단.
+              <div class="code-output">→ 만들어내는 것: <span>디자이너↔셀러 실시간 채팅 + 이미지 전송</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">lib/services/notification_service.dart</div>
+            <div class="code-desc">
+              <strong>FCM 푸시 알림 + 알림 센터.</strong> 30+ 이벤트(협업 상태 변경, 채팅, S'thinker). 포그라운드 로컬 알림 + 딥링크(알림 탭 → 상세 화면 직접 이동).
+              <div class="code-output">→ 만들어내는 것: <span>푸시 알림 수신 + 알림 벨 뱃지 + 알림 목록 화면</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GROUP: Cloud Functions -->
+      <div class="code-group">
+        <div class="code-group-header" onclick="toggleGroup(this)">
+          <div class="code-group-title">
+            <span class="icon">⚡</span> Cloud Functions (서버 로직)
+            <span class="code-group-badge badge-infra">Infra</span>
+          </div>
+          <span class="chevron">▼</span>
+        </div>
+        <div class="code-group-body">
+          <div class="code-item">
+            <div class="code-file">functions/index.js</div>
+            <div class="code-desc">
+              <strong>서버리스 백엔드 함수 모음.</strong> 앱에서 직접 할 수 없거나 보안이 필요한 로직을 서버에서 실행합니다:<br><br>
+              • <code>createKakaoCustomToken</code> — 카카오 로그인 → Firebase Custom Token 발급<br>
+              • <code>sendVerificationSMS / verifyPhoneCode</code> — Solapi 통해 카카오 알림톡 인증번호 발송/검증<br>
+              • <code>sendPushNotification</code> — 협업 상태 변경 시 FCM 푸시 발송<br>
+              • <code>onChatMessageCreated</code> — 채팅 메시지 생성 → 상대방에게 자동 푸시 (Firestore 트리거)<br>
+              • <code>verifyPaymentOwnership</code> — 결제 소유권 검증 (보안)<br>
+              • <code>verifyBusinessNumber</code> — 국세청 API로 사업자등록 상태 조회<br>
+              • <code>cleanupDuplicateFcmToken</code> — FCM 중복 토큰 정리
+              <div class="code-output">→ 만들어내는 것: <span>앱이 "서버에게 부탁"하는 모든 것 — 인증, 알림, 보안 검증</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GROUP: 모델/상태 -->
+      <div class="code-group">
+        <div class="code-group-header" onclick="toggleGroup(this)">
+          <div class="code-group-title">
+            <span class="icon">📦</span> 모델 & 상태 관리
+            <span class="code-group-badge badge-core">Core</span>
+          </div>
+          <span class="chevron">▼</span>
+        </div>
+        <div class="code-group-body">
+          <div class="code-item">
+            <div class="code-file">lib/models/</div>
+            <div class="code-desc">
+              <strong>데이터 구조 정의.</strong> UserModel, PostModel, CoworkModel 등. DB에서 가져온 원시 데이터를 Dart 객체로 변환하는 역할. UserTier(Pro/Indie), DesignerInfo, SellerInfo 등 포함.
+              <div class="code-output">→ 만들어내는 것: <span>"DB 데이터를 코드에서 다루기 쉬운 형태"로 변환</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">lib/providers/</div>
+            <div class="code-desc">
+              <strong>앱 전역 상태 관리.</strong> 현재 로그인 유저 정보, 협업 목록, 채팅 상태 등을 여러 화면에서 공유할 수 있게 합니다.
+              <div class="code-output">→ 만들어내는 것: <span>"한 화면에서 바꾼 데이터가 다른 화면에도 반영"되는 동기화</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GROUP: 디자인 시스템 -->
+      <div class="code-group">
+        <div class="code-group-header" onclick="toggleGroup(this)">
+          <div class="code-group-title">
+            <span class="icon">🎨</span> 디자인 시스템 & 공통 위젯
+            <span class="code-group-badge badge-core">Core</span>
+          </div>
+          <span class="chevron">▼</span>
+        </div>
+        <div class="code-group-body">
+          <div class="code-item">
+            <div class="code-file">lib/core/theme/</div>
+            <div class="code-desc">
+              <strong>색상/폰트/테마 규칙.</strong> Rich Black(#191919), Pure White, Accent Orange(#FF4500, 5% 미만). Pretendard(한글) + DM Serif Display(영문). border-radius 0~4px.
+              <div class="code-output">→ 만들어내는 것: <span>앱 전체의 통일된 시각적 분위기 (Minimalist Chic)</span></div>
+            </div>
+          </div>
+          <div class="code-item">
+            <div class="code-file">lib/core/widgets/</div>
+            <div class="code-desc">
+              <strong>재사용 가능한 UI 부품.</strong> ProductCard(피드 카드), KickButton(S'thinker 버튼), 프로그레스 바, 뱃지 등. 여러 화면에서 import해서 사용.
+              <div class="code-output">→ 만들어내는 것: <span>한 번 만들어서 여러 곳에서 쓰는 "UI 레고 블록"</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- SECTION 3: Data Flow                    -->
+  <!-- ════════════════════════════════════════ -->
+  <div id="flow" class="section">
+
+    <div class="flow-container">
+      <div class="flow-title">1. 디자인 업로드 → AI 렌더링 흐름</div>
+      <div class="flow-label">사용자 액션</div>
+      <div class="flow-row">
+        <div class="flow-box fb-user">디자이너가<br>스케치+원단 선택</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-screen">upload_screen.dart<br>3:4 크롭 + 카테고리</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-service">ai_service.dart<br>프롬프트 자동 조립</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-firebase">Gemini Flash<br>(Primary)</div>
+      </div>
+      <div class="flow-label">폴백 경로</div>
+      <div class="flow-row">
+        <div class="flow-box fb-firebase">Gemini Flash<br>실패 시</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-firebase">Gemini Pro<br>(Fallback)</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-firebase" style="border-color:#CE93D8; color:#CE93D8;">GPT Image 1.5<br>(Safety Net)</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-result">실사 이미지 생성</div>
+      </div>
+      <div class="flow-label">저장</div>
+      <div class="flow-row">
+        <div class="flow-box fb-result">렌더링 결과</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-service">storage_service.dart</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-firebase">Firebase Storage<br>이미지 저장</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-service">dataconnect_service.dart<br>Post 테이블에 URL 저장</div>
+      </div>
+    </div>
+
+    <div class="flow-container">
+      <div class="flow-title">2. 협업 전체 플로우 (26개 상태)</div>
+      <div class="flow-label">요청 → 견적 → 결제</div>
+      <div class="flow-row">
+        <div class="flow-box fb-user">셀러: 협업 요청</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-screen">cowork_request_screen</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-firebase">Cowork 생성<br>REQUESTED</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-user">디자이너: 견적 작성</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-firebase">QUOTED</div>
+      </div>
+      <div class="flow-row">
+        <div class="flow-box fb-user">셀러: 결제</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-screen">payment_screen<br>토스 SDK</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-firebase">PAID<br>에스크로 보관</div>
+      </div>
+      <div class="flow-label">샘플 제작 → 배송 → 피드백</div>
+      <div class="flow-row">
+        <div class="flow-box fb-user">디자이너: 제작</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-screen">sample_progress<br>6단계 추적</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-firebase">SAMPLE_DONE</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-screen">delivery_screen<br>택배/퀵/직접</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-firebase">DELIVERED</div>
+      </div>
+      <div class="flow-row">
+        <div class="flow-box fb-user">셀러: 피드백</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-screen">feedback_screen</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-result">승인 → 본생산<br>재샘플 → 새 견적 (최대 2회)</div>
+      </div>
+      <div class="flow-label">본생산 → CS → 완료</div>
+      <div class="flow-row">
+        <div class="flow-box fb-firebase">PRODUCTION_QUOTED</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-firebase">PRODUCTION_PAID</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-firebase">PRODUCTION_DELIVERED</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-screen">CS (불량 시)</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-result">COMPLETED<br>리뷰 + 정산</div>
+      </div>
+    </div>
+
+    <div class="flow-container">
+      <div class="flow-title">3. 로그인 → 회원가입 흐름</div>
+      <div class="flow-row">
+        <div class="flow-box fb-user">사용자: 소셜 로그인<br>Google / Apple / Kakao</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-service">auth_service.dart</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-firebase">Firebase Auth<br>(Kakao는 Custom Token)</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-screen">신규? → sign_up_screen<br>기존? → main_screen</div>
+      </div>
+      <div class="flow-row">
+        <div class="flow-box fb-screen">회원가입 멀티스텝<br>디자이너 5스텝 / 셀러 5스텝</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-service">Solapi 알림톡<br>휴대폰 인증</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-service">국세청 API<br>사업자 검증 (셀러 필수)</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-firebase">User 테이블 생성<br>Pro/Indie 구분</div>
+      </div>
+    </div>
+
+    <div class="flow-container">
+      <div class="flow-title">4. 푸시 알림 흐름</div>
+      <div class="flow-row">
+        <div class="flow-box fb-user">이벤트 발생<br>(협업/채팅/S'thinker)</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-service">Cloud Functions<br>sendPushNotification</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-firebase">Firestore<br>notifications 저장</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-firebase">FCM<br>푸시 발송</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box fb-screen">알림 센터<br>+ 딥링크 이동</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Navigation ──
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ── Code group toggle ──
+function toggleGroup(header) {
+  header.parentElement.classList.toggle('open');
+}
+
+// ── Tooltip data ──
+const tooltips = {
+  flutter: {
+    title: 'Flutter (Dart)',
+    desc: '크로스 플랫폼 앱 프레임워크. 하나의 코드베이스로 iOS + Android 앱을 동시에 만듭니다. UI는 위젯(Widget)이라는 블록을 조립해서 만드는 방식입니다.'
+  },
+  auth: {
+    title: 'Firebase Auth',
+    desc: '사용자 인증(로그인) 서비스. Google, Apple은 기본 지원. Kakao는 Cloud Functions에서 Custom Token을 발급받아 연동합니다. 로그인 후 <code>auth.uid</code>로 모든 데이터 접근 권한을 관리합니다.'
+  },
+  dataconnect: {
+    title: 'Firebase Data Connect',
+    desc: 'GraphQL 기반 백엔드. schema.gql에 테이블 구조를 정의하면 → PostgreSQL 테이블을 자동 생성하고 → Dart SDK도 자동 생성합니다. REST API 대신 GraphQL 쿼리/뮤테이션으로 데이터를 주고받습니다.'
+  },
+  postgres: {
+    title: 'PostgreSQL',
+    desc: '메인 데이터베이스. User, Post, Cowork, Quotation, Payment, Settlement 등 모든 핵심 데이터를 저장합니다. Data Connect가 GraphQL → SQL로 자동 변환해줍니다.'
+  },
+  firestore: {
+    title: 'Cloud Firestore',
+    desc: '실시간 NoSQL 데이터베이스. 채팅 메시지(실시간 스트림), 알림 저장, FCM 토큰, 알림 설정 ON/OFF, 관리자 패널 권한 등 "실시간 동기화"가 필요한 데이터에 사용합니다.'
+  },
+  storage: {
+    title: 'Firebase Storage',
+    desc: '이미지/파일 저장소. 스케치 원본, AI 렌더링 결과, 원단 사와치, 프로필 사진, 채팅 이미지, 사업자등록증 사본 등 모든 이미지가 여기에 업로드됩니다.'
+  },
+  functions: {
+    title: 'Cloud Functions (Node.js)',
+    desc: '서버 없이 실행되는 백엔드 함수. 카카오 Custom Token 발급, SMS/알림톡 발송, FCM 푸시 알림, 결제 소유권 검증, 사업자번호 조회 등 "앱에서 직접 하면 안 되는" 로직을 담당합니다.'
+  },
+  ai: {
+    title: 'AI 렌더링 엔진 v7.5 (특허 기술)',
+    desc: '스케치 + 원단 사진을 합성해서 실사 룩북 이미지를 생성합니다. 3-Tier 폴백: Flash(빠르고 저렴) → Pro(고품질) → GPT(최후 안전망). 건당 $0.045로 66% 비용 절감 달성.'
+  },
+  gemini: {
+    title: 'Gemini 3.1 Flash (Primary)',
+    desc: 'Google AI의 이미지 생성 모델. Pro와 동급 품질이면서 비용이 1/3 수준. 3:4 비율을 정확히 따르고 한국 패션 스타일에 강합니다. firebase_ai SDK를 통해 호출됩니다.'
+  },
+  gpt: {
+    title: 'GPT Image 1.5 (Safety Net)',
+    desc: 'OpenAI의 이미지 생성 모델. Gemini Flash와 Pro가 모두 실패했을 때 최후의 안전망으로 사용됩니다. 비율이 2:3로 살짝 다른 이슈가 있지만 안정성이 높습니다.'
+  },
+  toss: {
+    title: '토스페이먼츠',
+    desc: 'PG사(결제 대행). 에스크로 결제로 셀러의 돈을 안전하게 보관했다가, 거래 완료 후 디자이너에게 정산합니다. 카드 9개사 + 간편결제(카카오페이, 삼성페이 등) 지원.'
+  },
+  fcm: {
+    title: 'Firebase Cloud Messaging',
+    desc: '푸시 알림 서비스. 30+ 이벤트(협업 상태 변경, 새 메시지, S\'thinker)를 iOS/Android 기기에 실시간으로 전달합니다. APNs(iOS) + FCM(Android) 이중 경로.'
+  },
+  solapi: {
+    title: 'Solapi (카카오 알림톡)',
+    desc: '카카오 알림톡으로 인증번호를 발송합니다. 기존 SMS 대신 카카오톡 메시지로 발송 → 개인번호 노출 문제 해결 + 사용자 경험 향상. Cloud Functions에서 호출합니다.'
+  },
+  schema: {
+    title: 'schema.gql v6.3',
+    desc: 'GraphQL 스키마 정의 파일. 모든 테이블(User, Post, Cowork 등)의 구조를 여기서 정의합니다. 이 파일을 수정하면 → <code>firebase dataconnect:sdk:generate</code>로 Dart SDK를 재생성해야 합니다.'
+  },
+  kakao: {
+    title: 'Kakao API',
+    desc: '카카오 로그인(소셜 인증) + 카카오 주소 검색 API. 배송 정보 입력 시 카카오 주소 검색으로 정확한 주소를 입력받습니다.'
+  }
+};
+
+// ── Tooltip events ──
+document.querySelectorAll('.node').forEach(node => {
+  const key = node.dataset.info;
+  if (!key || !tooltips[key]) return;
+
+  node.addEventListener('mouseenter', (e) => {
+    const tip = document.getElementById('tooltip');
+    const data = tooltips[key];
+    tip.innerHTML = `<h3>${data.title}</h3><p>${data.desc}</p>`;
+    tip.classList.add('show');
+  });
+
+  node.addEventListener('mousemove', (e) => {
+    const tip = document.getElementById('tooltip');
+    const x = Math.min(e.clientX + 16, window.innerWidth - 380);
+    const y = Math.min(e.clientY + 16, window.innerHeight - 200);
+    tip.style.left = x + 'px';
+    tip.style.top = y + 'px';
+  });
+
+  node.addEventListener('mouseleave', () => {
+    document.getElementById('tooltip').classList.remove('show');
+  });
+});
+</script>
+
+</body>
+</html>
